@@ -10,8 +10,8 @@ save_dir = os.path.join("/root/image-matting-tool", "output", dataset)
 text_prompt = "a person"
 num_boxes = 1
 box_threshold = 0.5
-dilation_amt = 0
 
+dilation_amt = 0
 multimask_output = True
 save_image = True
 save_mask = True
@@ -27,7 +27,7 @@ print(process_info)
 
 
 background_dir = os.path.join("/root/image-matting-tool", "backgrounds")
-mask_option = "largest"  # ["first", "1", "2", "3", "largest", "smallest", "merge"]
+mask_option = "2"  # ["first", "1", "2", "3", "largest", "smallest", "merge"]
 h_shift = True
 
 _, process_info = change_background(
