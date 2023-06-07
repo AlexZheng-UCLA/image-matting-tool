@@ -1,0 +1,16 @@
+Flask
+Flask-Cors
+Celery
+redis
+torch
+torchvision
+transformers
+addict
+yapf
+timm
+numpy
+opencv-python
+supervision>=0.6.0
+pycocotools
+git+https://github.com/facebookresearch/segment-anything.git
+git+https://github.com/IDEA-Research/GroundingDINO
