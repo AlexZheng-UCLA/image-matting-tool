@@ -8,20 +8,20 @@ from collections import OrderedDict
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "cpu"
 dino_model_cache = OrderedDict()
-dino_model_dir = "/root/stable-diffusion-webui/extensions/sd-webui-segment-anything/models/grounding-dino"
+dino_model_dir = "/root/autodl-tmp/grounding-dino"
 dino_model = {
     "T": {
         "name": "GroundingDINO_SwinT_OGC",
         "checkpoint": os.path.join(dino_model_dir, "groundingdino_swint_ogc.pth"),
-        "config": os.path.join(dino_model_dir, "GroundingDINO_SwinT_OGC.py"),
+        "config": os.path.join(dino_model_dir, "GroundingDINO_SwinT_OGC.cfg.py"),
         "url": "https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swint_ogc.pth",
     },
-    # "B": {
-    #     "name": "GroundingDINO_SwinB_COGCOOR",
-    #     "checkpoint": os.path.join(dino_model_dir, "groundingdino_swinb_cogcoor.pth"),
-    #     "config": os.path.join(dino_model_dir, "GroundingDINO_SwinB.cfg.py"),
-    #     "url": "https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swinb_cogcoor.pth"
-    # },
+    "B": {
+        "name": "GroundingDINO_SwinB_COGCOOR",
+        "checkpoint": os.path.join(dino_model_dir, "groundingdino_swinb_cogcoor.pth"),
+        "config": os.path.join(dino_model_dir, "GroundingDINO_SwinB.cfg.py"),
+        "url": "https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swinb_cogcoor.pth"
+    },
 }
 
 def show_boxes(img_np, boxes, color=(255, 0, 0, 255), thickness=2, show_index=False):
@@ -34,23 +34,6 @@ def show_boxes(img_np, boxes, color=(255, 0, 0, 255), thickness=2, show_index=Fa
         if show_index:
             cv2.putText(img_np, str(idx), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     return img_np
-
-def load_img_from_path(img_dir_path):
-    if img_dir_path is None:
-        return False, "Please provide path to image directory"
-    if not os.path.exists(img_dir_path):
-        return False, "image directory dosen't exist!"
-
-    img_list = []
-    # append all the img in the img_path to the list
-    for filename in os.listdir(img_dir_path):
-        desired_ext = [".jpg", ".png", ".jpeg",  ".JPG", ".PNG", ".JPEG"]
-        if any(filename.endswith(ext) for ext in desired_ext):
-            img_path = os.path.join(img_dir_path, filename)
-            # open filename image as numpy
-            img = Image.open(img_path)
-            img_list.append(img)
-    return img_list, None
 
 def load_dino_model(dino_model_type):
     msg = f"Initializing {dino_model[dino_model_type]['name']} ..."

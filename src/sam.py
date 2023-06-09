@@ -2,6 +2,7 @@ import torch
 import os
 from PIL import Image
 import numpy as np
+import time
 import copy
 import cv2
 import shutil
@@ -12,27 +13,27 @@ from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
 sam_model_cache = OrderedDict()
-sam_model_dir = "/root/stable-diffusion-webui/extensions/sd-webui-segment-anything/models/sam"
+sam_model_dir = "/root/autodl-tmp/sam"
 sam_model = {
     "H" : {
         "name": "vit_h",
         "checkpoint": "sam_vit_h_4b8939.pth"
     },
-    # "L": {
-    #     "name": "vit_l",
-    #     "checkpoint": "sam_vit_l_0b3195.pth"
-    # },
-    # "B": {
-    #     "name": "vit_b",
-    #     "checkpoint": "sam_vit_b_01ec64.pth"
-    # },
+    "L": {
+        "name": "vit_l",
+        "checkpoint": "sam_vit_l_0b3195.pth"
+    },
+    "B": {
+        "name": "vit_b",
+        "checkpoint": "sam_vit_b_01ec64.pth"
+    },
 }
 
 def load_sam_model(model_type):
     if model_type is None:
-        return False, "Please provide path to sam model!"
+        return None, "Please provide path to sam model!"
     if not model_type in sam_model:
-        return False, "Provide correct sam model type"
+        return None, "Provide correct sam model type"
     
     if model_type in sam_model_cache:
         sam = sam_model_cache[model_type]
@@ -86,24 +87,51 @@ def show_boxes(img_np, boxes, color=(255, 0, 0, 255), thickness=2, show_index=Fa
     
     return img_np_copy
 
-def create_mask_output(img_np, masks, box_filters):
-    msg = f"Creating mask output..."
+def create_mask_output(
+    img_np, 
+    masks, 
+    box_filters,
+    dilation_amt, 
+    ):
+    msg = f"Creating mask output ..."
+    t1 = time.time()
 
-    img_masked, masks_gallery, img_matted = [], [], []
+    img_blended, masks_gallery, img_matted = [], [], []
     box_filters = box_filters.astype(int) if box_filters is not None else None
     for mask in masks:
-        masks_gallery.append(Image.fromarray(np.any(mask, axis=0)))
-
+        
+        # 1. blend image: show boxes and masks
         blended_image = show_masks(show_boxes(img_np, box_filters), mask)
-        img_masked.append(Image.fromarray(blended_image))
+        img_blended.append(Image.fromarray(blended_image))
+        
+        merged_mask = np.any(mask, axis=0)
+        if dilation_amt:
+            _, merged_mask = dilate_mask(merged_mask, dilation_amt)
+        
+        # 2. mask gallery: show masks in pic form
+        masks_gallery.append(Image.fromarray(merged_mask))
+        
+        # 3. image matted: matted area in png form 
+        output_matted = img_np.copy()
+        if output_matted.shape[2] == 4:
+            # set alpha to 0 for the region to be transparent
+            output_matted[~merged_mask, 3] = 0
+        else:
+            # if no alpha channel exists, create one
+            h, w = output_matted.shape[:2]
+            alpha = np.ones((h, w)) * 255
+            alpha[~merged_mask] = 0
+            output_matted = np.dstack([output_matted, alpha])
 
-        img_np[~np.any(mask, axis=0)] = np.zeros(len(img_np.shape))
-        img_matted.append(Image.fromarray(img_np))
+        output_matted = Image.fromarray(output_matted.astype(np.uint8))
+        img_matted.append(output_matted)
 
-    return (img_masked, masks_gallery, img_matted), None
+    t2 = time.time()
+    msg += f"create mask output time: {t2-t1:.2f}s"
+    return img_blended, masks, img_matted, msg
 
 
-def create_mask_output_and_save(
+def create_mask_output_save(
     file_name, 
     save_dir, 
     img_np, 

@@ -3,6 +3,7 @@ import os
 import cv2
 import copy
 from PIL import Image
+import pyheif
 
 def load_img_from_path(img_dir_path):
     if img_dir_path is None:
@@ -21,8 +22,51 @@ def load_img_from_path(img_dir_path):
             # open filename image as numpy
             img = Image.open(img_path)
             img_list.append(img)
+        elif filename.endswith(".heic"):
+            heif_image = pyheif.read(filename)
+            img = Image.frombytes(
+                heif_image.mode,
+                heif_image.size,
+                heif_image.data,
+                "raw",
+                heif_image.mode,
+                heif_image.stride,
+            )
+            img_list.append(img)
     return img_list, filename_list, None
 
+def load_imgnp_from_path(img_dir_path):
+    if img_dir_path is None:
+        return None, None, "Please provide path to image directory"
+    if not os.path.exists(img_dir_path):
+        return None, None, "image directory dosen't exist!"
+
+    img_list = []
+    filename_list = []
+    # append all the img in the img_path to the list
+    for filename in os.listdir(img_dir_path):
+        desired_ext = [".jpg", ".png", ".jpeg",  ".JPG", ".PNG", ".JPEG"]
+        if any(filename.endswith(ext) for ext in desired_ext):
+            filename_list.append(filename)
+            img_path = os.path.join(img_dir_path, filename)
+            # open filename image as numpy
+            img = Image.open(img_path)
+            imgnp = np.array(img)
+            img_list.append(imgnp)
+
+        elif filename.endswith(".heic"):
+            heif_image = pyheif.read(filename)
+            img = Image.frombytes(
+                heif_image.mode,
+                heif_image.size,
+                heif_image.data,
+                "raw",
+                heif_image.mode,
+                heif_image.stride,
+            )
+            img_list.append(img)
+    img_array = np.array(img_list)
+    return img_array, filename_list, None
 
 def unify_image_version(img_np, version="rgb"):
     img_np_copy = copy.deepcopy(img_np)
@@ -46,6 +90,55 @@ def unify_image_version(img_np, version="rgb"):
 
     return img_np_copy
 
+def add_background(
+    img_np,
+    background_list,
+    mask,
+    h_shift,
+):
+    width, height = img_np.shape[1], img_np.shape[0]
+    size = max(width, height)
+    img_bg = []
+    img_np_copy = copy.deepcopy(img_np)
+
+    mask_vpos, mask_hpos = np.where(mask)
+    mask_width = np.max(mask_hpos) - np.min(mask_hpos)
+    mask_height = np.max(mask_vpos) - np.min(mask_vpos)
+    mask_median_hpos = np.median(mask_hpos).astype(int)
+    mask_median_vpos = np.median(mask_vpos).astype(int)
+
+    if h_shift:
+        if width // 2 - mask_median_hpos > 0: # right shft
+            hshift = min(width // 2 - mask_median_hpos, width - mask_width)
+        else:                                 # left shift 
+            hshift = max(width // 2 - mask_median_hpos, mask_width - width)
+
+        msg = f"mask_width: {mask_width}, mask_height: {mask_height}, mask_median_hpos: {mask_median_hpos}, mask_median_vpos: {mask_median_vpos}, hshift: {hshift}"
+    else:
+        hshift = 0
+
+    for idx, background in enumerate(background_list):
+
+        background_np = np.array(background)
+        
+
+        if background_np.shape[-1] < img_np_copy.shape[-1]:
+            background_np = unify_image_version(background_np, version="rgba")
+        elif background_np.shape[-1] > img_np_copy.shape[-1]:
+            img_np_copy = unify_image_version(img_np_copy, version="rgba")
+
+        for i in range(width):
+            for j in range(height):
+                if mask[i, j] and 0 <= j+hshift < width:
+                    background_np[i, j+hshift, :] = img_np_copy[i, j, :]
+
+        background_np = background_np.astype(np.uint8)
+        img_processed = Image.fromarray(background_np)
+
+        img_bg.append(img_processed)
+
+    return img_bg, msg
+
 
 def move_masked_add_background(
     file_name, 
@@ -55,7 +148,7 @@ def move_masked_add_background(
     merged_masks,
     mask_option,
     h_shift, 
-    save_image=True,
+    save_image=True
 ):
     msg = ""
     width, height = img_np.shape[1], img_np.shape[0]
@@ -122,25 +215,6 @@ def move_masked_add_background(
 
         processed_images.append(img_processed)
     return processed_images, msg
-
-
-def load_background_from_path(background_dir):
-    if background_dir is None:
-        return None, "Please provide path to background directory"
-    if not os.path.exists(background_dir):
-        return None, "background directory dosen't exist!"
-    
-    background_list = []
-    # append all the img in the img_path to the list
-    for filename in os.listdir(background_dir):
-        desired_ext = [".jpg", ".png", ".jpeg",  ".JPG", ".PNG", ".JPEG"]
-        if any(filename.endswith(ext) for ext in desired_ext):
-            background_path = os.path.join(background_dir, filename)
-            # open filename image as numpy
-            background = Image.open(background_path)
-            background_list.append(background)
-    return background_list, "Load background from path successfully"
-
 
 def generate_pure_background(width, height, save_dir):
     if not os.path.exists(save_dir):
