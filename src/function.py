@@ -2,6 +2,7 @@ import torch
 import os 
 from PIL import Image
 import numpy as np
+import json
 import cv2
 from scipy.ndimage import binary_dilation
 from segment_anything import SamPredictor
@@ -33,8 +34,7 @@ def full_process(
     save_background=True,
     save_blend=True, 
     save_image_masked=True,
-    save_image_bg=True,
-    h_shift=True,
+    save_image_pasted=True,
     ):
 
     if text_prompt is None or text_prompt == "":
@@ -100,7 +100,8 @@ def full_process(
         print(msg)
         if bg_list is None:
             return 
-        img_bg, msg = add_background(img_np, bg_list, mask_clip, h_shift)
+        ratios = json.load(f"{background_dir}/ratios.json")
+        img_pasted_list = paste_to_background(img_matted, mask_clip, bg_list, ratios)
 
         # save *********************************
         if save_image:
@@ -114,8 +115,9 @@ def full_process(
         if save_image_masked:
             for i, image_matted in enumerate(img_matted):
                 image_matted.save(os.path.join(save_dir, f"{filename_list[idx]}_matted_{i}.png"))
-        if save_image_bg:
-            img_bg.save(os.path.join(save_dir, f"{filename_list[idx]}_bg.png"))
+        if save_image_pasted:
+            for i, img_pasted in enumerate(img_pasted_list):
+                img_pasted.save(os.path.join(save_dir, f"{filename_list[idx]}_pasted_{i}.png"))
 
     garbage_collect(sam)
     print("Done!")
@@ -328,3 +330,6 @@ if __name__ == "__main__":
     )
     print(process_info)
     # masks = mask_entire_image(sam, images[0])
+
+
+

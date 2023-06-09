@@ -22,6 +22,7 @@ save_blend = True
 save_image_masked = True
 h_shift = True
 
+
 full_process(
     sam_model_type, 
     dino_model_type, 
