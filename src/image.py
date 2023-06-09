@@ -98,7 +98,7 @@ def paste_to_background(
     # mask_median_vpos = np.median(mask_vpos).astype(int)
 
     img_paste_list = []
-    for img_bg, filename, ratio in zip(background_list, filename_list, ratios):
+    for img_bg, ratio in zip(background_list, ratios):
         img_paste = overlay_images(image, img_bg, mask_width, ratio)
         img_paste_list.append(img_paste)
 

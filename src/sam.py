@@ -96,7 +96,7 @@ def create_mask_output(
     msg = f"Creating mask output ..."
     t1 = time.time()
 
-    img_blended, masks_gallery, img_matted = [], [], []
+    img_blended, masks_gallery, img_matted, merged_masks = [], [], [], []
     box_filters = box_filters.astype(int) if box_filters is not None else None
     for mask in masks:
         
@@ -122,14 +122,16 @@ def create_mask_output(
             alpha = np.ones((h, w)) * 255
             alpha[~merged_mask] = 0
             output_matted = np.dstack([output_matted, alpha])
+        
+        # 4. merged_masks: merged masks in np form
+        merged_masks.append(merged_mask)
 
         output_matted = Image.fromarray(output_matted.astype(np.uint8))
         img_matted.append(output_matted)
 
     t2 = time.time()
     msg += f"create mask output time: {t2-t1:.2f}s"
-    return img_blended, masks, img_matted, msg
-
+    return img_blended, masks_gallery, img_matted, merged_masks, msg
 
 def create_mask_output_save(
     file_name, 

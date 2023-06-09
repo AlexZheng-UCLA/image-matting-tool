@@ -82,7 +82,7 @@ def full_process(
 
         # get_mask **************************
         box_filters = box_filters.cpu().numpy().astype(int)
-        img_blended, img_masks, img_matted, msg = create_mask_output(img_np, masks, box_filters, dilation_amt)
+        img_blended, img_masks, img_matted, merged_masks, msg = create_mask_output(img_np, masks, box_filters, dilation_amt)
         # merged_masks, msg = create_mask_output(
         #     filename_list[idx], save_dir, img_np, masks, box_filters, dilation_amt, save_image, save_mask, save_background, save_blend, save_image_masked)
         print(msg)
@@ -93,15 +93,18 @@ def full_process(
         if clip is None:
             return
         idx, probs = closest_image(text_prompt, img_matted, clip, processor)
-        mask_clip = np.any(masks[idx[0]], axis=0)
+        mask_clip = merged_masks[idx[0]]
+        print(mask_clip)
+        overlay_image = img_matted[idx[0]]
 
         # add background *********************** 
         bg_list, filename_list, msg = load_img_from_path(background_dir)
         print(msg)
         if bg_list is None:
-            return 
-        ratios = json.load(f"{background_dir}/ratios.json")
-        img_pasted_list = paste_to_background(img_matted, mask_clip, bg_list, ratios)
+            return
+        with open(os.path.join(background_dir, "ratios.json"), 'r') as f:
+            ratios = json.load(f)
+        img_pasted_list = paste_to_background(overlay_image, mask_clip, bg_list, ratios)
 
         # save *********************************
         if save_image:
@@ -121,7 +124,7 @@ def full_process(
 
     garbage_collect(sam)
     print("Done!")
-    return process_info + "Done"
+    return 0
 
 def matting(
     sam_model_type, 

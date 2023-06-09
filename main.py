@@ -3,8 +3,8 @@ from src.function import *
 
 sam_model_type = "H"
 dino_model_type = "T"
-dataset = "xxy"
-background = "resorts"
+dataset = "yml-half"
+background = "resorts-half"
 img_source_dir = os.path.join("/root/autodl-tmp/dataset", dataset)
 background_dir = os.path.join("/root/autodl-tmp/dataset", background)
 save_dir = os.path.join("/root/image-matting-tool", "outputs", dataset)
@@ -40,8 +40,7 @@ full_process(
     save_background=True,
     save_blend=True, 
     save_image_masked=True,
-    save_image_bg=True,
-    h_shift=True,
+    save_image_pasted=True,
 )
 
 
