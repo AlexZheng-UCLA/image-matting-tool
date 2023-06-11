@@ -112,22 +112,25 @@ def create_mask_output(
         masks_gallery.append(Image.fromarray(merged_mask))
         
         # 3. image matted: matted area in png form 
-        output_matted = img_np.copy()
-        if output_matted.shape[2] == 4:
+        image_matted = img_np.copy()
+        if image_matted.shape[2] == 4:
             # set alpha to 0 for the region to be transparent
-            output_matted[~merged_mask, 3] = 0
+            image_matted[~merged_mask, 3] = 0
         else:
             # if no alpha channel exists, create one
-            h, w = output_matted.shape[:2]
+            h, w = image_matted.shape[:2]
             alpha = np.ones((h, w)) * 255
             alpha[~merged_mask] = 0
-            output_matted = np.dstack([output_matted, alpha])
+            image_matted = np.dstack([image_matted, alpha])
+        
+        image_matted = Image.fromarray(image_matted.astype(np.uint8))
+        for j, box in enumerate(box_filters):
+            image_matted_cropped = image_matted.crop(box)
+            img_matted.append(image_matted_cropped)
         
         # 4. merged_masks: merged masks in np form
         merged_masks.append(merged_mask)
 
-        output_matted = Image.fromarray(output_matted.astype(np.uint8))
-        img_matted.append(output_matted)
 
     t2 = time.time()
     msg += f"create mask output time: {t2-t1:.2f}s"
@@ -177,6 +180,7 @@ def create_mask_output_save(
             output_blend.save(os.path.join(save_dir, f"{filename}_{idx}_blend{ext}"))
         if save_image_masked:
             output_matted = img_np.copy()
+
                # check if there is an alpha channel
             if output_matted.shape[2] == 4:
                 # set alpha to 0 for the region to be transparent
@@ -188,8 +192,11 @@ def create_mask_output_save(
                 alpha[~merged_mask] = 0
                 output_matted = np.dstack([output_matted, alpha]) 
 
+
             output_matted = Image.fromarray(output_matted.astype(np.uint8))
-            output_matted.save(os.path.join(save_dir, f"{filename}_{idx}_matted.png"))
+            for j, box in enumerate(box_filters):
+                output_matted_cropped = output_matted.crop(box)
+                output_matted.save(os.path.join(save_dir, f"{filename}_{idx}_{j}_matted.png"))
         
         merged_masks.append(merged_mask)
     return merged_masks, msg

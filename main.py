@@ -19,8 +19,8 @@ save_image = True
 save_mask = True
 save_background = True
 save_blend = True
-save_image_masked = True
-h_shift = True
+save_image_matted = True
+save_image_pasted=True,
 
 
 full_process(
@@ -33,14 +33,13 @@ full_process(
     img_source_dir, 
     background_dir,
     save_dir,
-    multimask_output=True,
-    mask_option="1",
-    save_image=True, 
-    save_mask=True, 
-    save_background=True,
-    save_blend=True, 
-    save_image_masked=True,
-    save_image_pasted=True,
+    multimask_output,
+    save_image, 
+    save_mask, 
+    save_background,
+    save_blend, 
+    save_image_matted,
+    save_image_pasted,
 )
 
 

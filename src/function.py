@@ -28,12 +28,11 @@ def full_process(
     background_dir,
     save_dir,
     multimask_output=True,
-    mask_option="1",
     save_image=True, 
     save_mask=True, 
     save_background=True,
     save_blend=True, 
-    save_image_masked=True,
+    save_image_matted=True,
     save_image_pasted=True,
     ):
 
@@ -63,11 +62,11 @@ def full_process(
 
         # grounding-dino ********************** 
         box_filters, msg = dino_predict(dino_model_type, img, text_prompt, num_boxes, box_threshold)
-
         if box_filters is None or box_filters.shape[0] == 0:
             msg = f"GroundingDINO generated 0 box for image {filename_list[idx]}, please lower the box threshold if you want any segmentation for this image. "
             print(msg)
             continue
+        print(f"pic {idx} -- grounding dino complete")    
 
         # sam **********************************
         predictor.set_image(img_np_rgb)
@@ -86,16 +85,19 @@ def full_process(
         # merged_masks, msg = create_mask_output(
         #     filename_list[idx], save_dir, img_np, masks, box_filters, dilation_amt, save_image, save_mask, save_background, save_blend, save_image_masked)
         print(msg)
+        print(f"pic {idx} -- sam complete")    
 
         # clip ********************************
         clip, processor, msg = load_clip_model("L")
         print(msg)
         if clip is None:
             return
-        idx, probs = closest_image(text_prompt, img_matted, clip, processor)
-        mask_clip = merged_masks[idx[0]]
-        print(mask_clip)
-        overlay_image = img_matted[idx[0]]
+        clip_idx, probs = closest_image(text_prompt, img_matted, clip, processor)
+        clip_idx = clip_idx[0]
+        mask_clip = merged_masks[clip_idx]
+        overlay_images = img_matted[num_boxes*clip_idx:num_boxes*(clip_idx+1)]
+        
+        print(f"pic {idx} -- clip complete")   
 
         # add background *********************** 
         bg_list, filename_list, msg = load_img_from_path(background_dir)
@@ -104,7 +106,8 @@ def full_process(
             return
         with open(os.path.join(background_dir, "ratios.json"), 'r') as f:
             ratios = json.load(f)
-        img_pasted_list = paste_to_background(overlay_image, mask_clip, bg_list, ratios)
+        img_pasted_list = paste_to_background(overlay_images, mask_clip, bg_list, ratios)
+        print(f"pic {idx} -- paste to background complete")
 
         # save *********************************
         if save_image:
@@ -112,15 +115,18 @@ def full_process(
         if save_mask:
             for i, image_mask in enumerate(img_masks):
                 image_mask.save(os.path.join(save_dir, f"{filename_list[idx]}_mask_{i}.png"))
+            img_masks[clip_idx].save(os.path.join(save_dir, f"{filename_list[idx]}_mask_chosen.png"))
         if save_blend:
             for i, image_blend in enumerate(img_blended):
                 image_blend.save(os.path.join(save_dir, f"{filename_list[idx]}_blend_{i}.png"))
-        if save_image_masked:
+        if save_image_matted:
             for i, image_matted in enumerate(img_matted):
                 image_matted.save(os.path.join(save_dir, f"{filename_list[idx]}_matted_{i}.png"))
+            img_matted[clip_idx].save(os.path.join(save_dir, f"{filename_list[idx]}_matted_chosen.png"))
         if save_image_pasted:
             for i, img_pasted in enumerate(img_pasted_list):
                 img_pasted.save(os.path.join(save_dir, f"{filename_list[idx]}_pasted_{i}.png"))
+        print(f"pic {idx} -- save complete")
 
     garbage_collect(sam)
     print("Done!")
