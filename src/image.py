@@ -39,7 +39,17 @@ def load_img_from_path(img_dir_path):
             filename_list.append(filename)
     return img_list, filename_list, None
 
-def unify_image_version(img_np, version="rgb"):
+def convert_img_version(img, version="rgb"):
+    img_copy = copy.deepcopy(img)
+    if version=="rgb":
+        img_copy = img_copy.convert("RGB")
+    elif version=="rgba":
+        img_copy = img_copy.convert("RGBA")
+
+    return img_copy
+
+
+def convert_img_np_version(img_np, version="rgb"):
     img_np_copy = copy.deepcopy(img_np)
     if version=="rgb":
         if len(img_np_copy.shape) == 2:  # Grayscale image
@@ -61,27 +71,27 @@ def unify_image_version(img_np, version="rgb"):
 
     return img_np_copy
 
-def overlay_images(overlay_images, background_image, real_width, ratio):
+def overlay_images(overlay_image, background_image, mask, real_width, ratio):
 
     width_bg, height_bg = background_image.size
     w_ratio, h_ratio = ratio[0], ratio[1]
 
-    img_pasted = []
-    for overlay_image in overlay_images:
-        img_bg_copy = copy.deepcopy(background_image)
-        img_overlay_copy = copy.deepcopy(overlay_image)
+    img_bg_copy = copy.deepcopy(background_image)
+    img_bg_copy = convert_img_version(img_bg_copy, version="rgba")
+    img_overlay_copy = copy.deepcopy(overlay_image)
 
-        width_img, height_img = overlay_image.size
-        scale = height_bg * h_ratio / height_img
-        new_height = int(height_img * scale)
-        new_width = int(width_img * scale)
-        new_real_width = int(real_width * scale)
+    width_img, height_img = overlay_image.size
+    scale = height_bg * h_ratio / height_img
+    new_height = int(height_img * scale)
+    new_width = int(width_img * scale)
+    new_real_width = int(real_width * scale)
 
-        img_resized = img_overlay_copy.resize((new_width, new_height))
-        position = (int(width_bg * w_ratio - new_real_width/2), int(height_bg * (1-h_ratio)))
-        img_bg_copy.paste(img_resized, position)
+    img_resized = img_overlay_copy.resize((new_width, new_height))
+    position = (int(width_bg * w_ratio - new_real_width/2), int(height_bg * (1-h_ratio)))
+    img_pasted = Image.new('RGBA', img_bg_copy.size)
 
-    img_pasted.append(img_bg_copy)
+    img_pasted.paste(img_bg_copy, (0, 0))
+    img_pasted.paste(img_resized, position, img_resized)  # Use img_resized as the mask
     return img_pasted
 
 
@@ -99,8 +109,8 @@ def paste_to_background(
 
     img_paste_list = []
     for img_bg, ratio in zip(background_list, ratios):
-        img_paste = overlay_images(images, img_bg, mask_width, ratio)
-        img_paste_list.extend(img_paste)
+        img_paste = overlay_images(images, img_bg, mask, mask_width, ratio)
+        img_paste_list.append(img_paste)
 
     return img_paste_list
 
@@ -164,9 +174,9 @@ def move_masked_add_background(
         background_np = background_np[:height, :width]
 
         if background_np.shape[-1] < img_np_copy.shape[-1]:
-            background_np = unify_image_version(background_np, version="rgba")
+            background_np = convert_img_np_version(background_np, version="rgba")
         elif background_np.shape[-1] > img_np_copy.shape[-1]:
-            img_np_copy = unify_image_version(img_np_copy, version="rgba")
+            img_np_copy = convert_img_np_version(img_np_copy, version="rgba")
 
         for i in range(width):
             for j in range(height):

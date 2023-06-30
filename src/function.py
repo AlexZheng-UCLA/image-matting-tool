@@ -95,7 +95,7 @@ def full_process(
         clip_idx, probs = closest_image(text_prompt, img_matted, clip, processor)
         clip_idx = clip_idx[0]
         mask_clip = merged_masks[clip_idx]
-        overlay_images = img_matted[num_boxes*clip_idx:num_boxes*(clip_idx+1)]
+        overlay_image = img_matted[clip_idx]
         
         print(f"pic {idx} -- clip complete")   
 
@@ -106,7 +106,7 @@ def full_process(
             return
         with open(os.path.join(background_dir, "ratios.json"), 'r') as f:
             ratios = json.load(f)
-        img_pasted_list = paste_to_background(overlay_images, mask_clip, bg_list, ratios)
+        img_pasted_list = paste_to_background(overlay_image, mask_clip, bg_list, ratios)
         print(f"pic {idx} -- paste to background complete")
 
         # save *********************************
@@ -132,77 +132,6 @@ def full_process(
     print("Done!")
     return 0
 
-def matting(
-    sam_model_type, 
-    dino_model_type, 
-    text_prompt, 
-    num_boxes,
-    box_threshold, 
-    dilation_amt,
-    img_source_dir, 
-    save_dir,
-    multimask_output=True,
-    save_image=True, 
-    save_mask=True, 
-    save_background=True,
-    save_blend=True, 
-    save_image_masked=True,
-):  
-    # process_info = ""
-
-    if text_prompt is None or text_prompt == "":
-        print("Please add text prompts to generate masks")
-        return
-
-    print("Start groundingdino + sam processing")
-    # get the parent folder of save_dir 
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
-
-    sam, msg = load_sam_model(sam_model_type)
-    print(msg)
-    if sam is None:
-        return
-
-    predictor = SamPredictor(sam)
-    img_list, filename_list, msg = load_img_from_path(img_source_dir)
-    img_np_list, _, _, = load_img_from_path(img_source_dir)
-    print(msg)
-    if img_list is None:
-        return 
-
-    for idx, img in enumerate(img_list):
-        img_np = np.array(img)
-        img_np_rgb = img_np[..., :3]
-
-        # grounding-dino ********************** 
-        box_filters, msg = dino_predict(dino_model_type, img, text_prompt, num_boxes, box_threshold)
-
-        if box_filters is None or box_filters.shape[0] == 0:
-            msg = f"GroundingDINO generated 0 box for image {filename_list[idx]}, please lower the box threshold if you want any segmentation for this image. "
-            process_info += (msg + "\n") if msg else ""
-            continue
-
-        # sam **********************************
-        predictor.set_image(img_np_rgb)
-        transformed_boxes = predictor.transform.apply_boxes_torch(box_filters, img_np.shape[:2])
-        masks, _, _ = predictor.predict_torch(
-            point_coords=None,
-            point_labels=None,
-            boxes=transformed_boxes.to(device),
-            multimask_output=multimask_output,
-            )
-        masks = masks.permute(1, 0, 2, 3).cpu().numpy()
-        box_filters = box_filters.cpu().numpy().astype(int)
-        # post-process **************************
-        merged_masks, msg = create_mask_output_and_save(
-            filename_list[idx], save_dir, img_np, masks, box_filters, dilation_amt, save_image, save_mask, save_background, save_blend, save_image_masked)
-        if merged_masks is None:
-            return msg
-        else:
-            process_info += (msg + "\n") if msg else ""
-
-    return merged_masks, process_info
 
 def pick_mask(clip_model_type, text_prompt, img_matted_dir, merged_masks):
     if text_prompt is None or text_prompt == "":
